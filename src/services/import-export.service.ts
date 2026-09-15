@@ -500,6 +500,33 @@ export class ImportExportService {
     }
   }
 
+  static async importFromMarkdown(file: File): Promise<ImportResult> {
+    try {
+      const validatedNotes: Note[] = [];
+      const errors: string[] = [];
+
+      if (file.name.endsWith('.md') || file.type === 'text/markdown') {
+        const text = await file.text();
+        const parsed = MarkdownUtil.parseSingleNote(text);
+        const note: Note = {
+          id: uuidv4(),
+          title: parsed.title || 'Untitled Note',
+          content: parsed.content || '',
+          status: parsed.status || 'todo',
+          priority: parsed.priority || 'medium',
+          isPinned: false,
+          createdAt: parsed.createdAt || new Date(),
+          tags: parsed.tags,
+        };
+        validatedNotes.push(note);
+      }
+      return { success: true, message: `Successfully imported ${validatedNotes.length} note(s)`, notes: validatedNotes };
+    } catch (error) {
+      console.error('[ImportExportService] Error importing from Markdown:', error);
+      return { success: false, message: 'Failed to import file. Ensure it is valid.', errors: [(error as Error).message] };
+    }
+  }
+
   /**
    * Escapes special characters in CSV fields
    */
