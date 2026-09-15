@@ -13,6 +13,7 @@ import type {
 } from '../models/user-preferences.model';
 import { EMOTE_AVATARS } from '../constants/emotes';
 
+// Formats: JSON, CSV, MD, PDF
 interface ExportResult {
   success: boolean;
   message: string;
