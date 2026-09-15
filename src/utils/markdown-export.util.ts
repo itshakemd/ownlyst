@@ -1,4 +1,26 @@
-import type { Note 
+import type { Note } from '../models/note.model';
+
+/**
+ * Utility to convert Note objects to formatted Markdown.
+ */
+export class MarkdownUtil {
+  /**
+   * Generates a single note Markdown string with YAML frontmatter.
+   */
+  static generateSingleNote(note: Note): string {
+    const createdDate = note.createdAt instanceof Date ? note.createdAt.toISOString().split('T')[0] : String(note.createdAt);
+    const updatedDate = createdDate;
+
+    let frontmatter = `---\ntitle: ${note.title}\nstatus: ${note.status}\npriority: ${note.priority}\ncreated: ${createdDate}\nupdated: ${updatedDate}\n`;
+    if (note.tags && note.tags.length > 0) {
+      frontmatter += `tags: [${note.tags.join(', ')}]\n`;
+    }
+    frontmatter += `---\n\n`;
+
+    const content = note.content || '';
+    return `${frontmatter}# ${note.title}\n\n${content}`;
+  }
+
   /**
    * Generates a bulk export formatted Markdown containing multiple notes.
    */
@@ -52,27 +74,64 @@ import type { Note
 
     return output;
   }
-}
- from '../models/note.model';
 
-/**
- * Utility to convert Note objects to formatted Markdown.
- */
-export class MarkdownUtil {
   /**
-   * Generates a single note Markdown string with YAML frontmatter.
+   * Parses a single Markdown string into a Note-like object.
+   * Extracts YAML frontmatter for metadata.
    */
-  static generateSingleNote(note: Note): string {
-    const createdDate = note.createdAt instanceof Date ? note.createdAt.toISOString().split('T')[0] : String(note.createdAt);
-    const updatedDate = createdDate;
+  static parseSingleNote(markdown: string): Partial<Note> {
+    const note: Partial<Note> = {};
+    let content = markdown;
 
-    let frontmatter = `---\ntitle: ${note.title}\nstatus: ${note.status}\npriority: ${note.priority}\ncreated: ${createdDate}\nupdated: ${updatedDate}\n`;
-    if (note.tags && note.tags.length > 0) {
-      frontmatter += `tags: [${note.tags.join(', ')}]\n`;
+    // Regex to match YAML frontmatter
+    const frontmatterRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
+    const match = markdown.match(frontmatterRegex);
+
+    if (match) {
+      const frontmatterStr = match[1];
+      content = markdown.slice(match[0].length);
+
+      const lines = frontmatterStr.split(/\r?\n/);
+      for (const line of lines) {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          const key = line.slice(0, colonIndex).trim();
+          let value = line.slice(colonIndex + 1).trim();
+
+          if (key === 'title') note.title = value;
+          else if (key === 'status') note.status = value as Note['status'];
+          else if (key === 'priority') note.priority = value as Note['priority'];
+          else if (key === 'created') note.createdAt = new Date(value);
+          else if (key === 'tags') {
+            if (value.startsWith('[') && value.endsWith(']')) {
+              value = value.slice(1, -1);
+            }
+            note.tags = value.split(',').map((t) => t.trim()).filter(Boolean);
+          }
+        }
+      }
     }
-    frontmatter += `---\n\n`;
 
-    const content = note.content || '';
-    return `${frontmatter}# ${note.title}\n\n${content}`;
+    // Attempt to extract title from first H1 if not in frontmatter
+    if (!note.title) {
+      const titleMatch = content.match(/^#\s+(.+)$/m);
+      if (titleMatch) {
+        note.title = titleMatch[1].trim();
+        // Remove title from content
+        content = content.replace(titleMatch[0], '').trim();
+      } else {
+        note.title = 'Imported Note';
+      }
+    } else {
+      // If title is in frontmatter, we might still want to remove the redundant H1 from the top
+      const titleMatch = content.match(/^#\s+(.+)$/m);
+      if (titleMatch && titleMatch[1].trim() === note.title) {
+        content = content.replace(titleMatch[0], '').trim();
+      }
+    }
+
+    note.content = content.trim();
+
+    return note;
   }
 }
