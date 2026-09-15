@@ -41,6 +41,18 @@ export default function ImportExport({
     setIsOpen(false);
   };
 
+  const handleExportMarkdown = async () => {
+    const result = await ImportExportService.exportAsMarkdown(notes);
+    showToast(result.message, result.success ? 'success' : 'error');
+    setIsOpen(false);
+  };
+
+  const handleExportPDF = () => {
+    const result = ImportExportService.exportAsPDF(notes);
+    showToast(result.message, result.success ? 'success' : 'error');
+    setIsOpen(false);
+  };
+
   const handleExportCSV = () => {
     const result = ImportExportService.exportAsCSV(notes, userPreferences);
     showToast(result.message, result.success ? 'success' : 'error');
@@ -140,6 +152,20 @@ export default function ImportExport({
                     className='w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors'>
                     <Download size={16} />
                     <span>Backup (CSV)</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                    onClick={handleExportMarkdown}
+                    className='w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors'>
+                    <Download size={16} />
+                    <span>Export (Markdown)</span>
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                    onClick={handleExportPDF}
+                    className='w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors'>
+                    <Download size={16} />
+                    <span>Export (PDF)</span>
                   </motion.button>
                 </div>
 
