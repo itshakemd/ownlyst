@@ -183,7 +183,6 @@ export class ImportExportService {
   static async exportAsMarkdown(notes: Note[]): Promise<ExportResult> {
     try {
       if (notes.length === 1) {
-        // Single note export: just download a .md file
         const note = notes[0];
         const mdContent = MarkdownUtil.generateSingleNote(note);
         const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
@@ -196,28 +195,16 @@ export class ImportExportService {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        
-        return {
-          success: true,
-          message: `Exported ${note.title} as Markdown`,
-          fileName: link.download,
-        };
+        return { success: true, message: `Exported ${note.title} as Markdown`, fileName: link.download };
       }
-
-      // Bulk export: generate a ZIP file containing individual .md files and an index
       const zip = new JSZip();
-      
-      // Generate individual note files
       notes.forEach((note) => {
         const mdContent = MarkdownUtil.generateSingleNote(note);
         const safeTitle = note.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || note.id;
         zip.file(`notes/${safeTitle}.md`, mdContent);
       });
-      
-      // Generate bulk index
       const indexContent = MarkdownUtil.generateBulkExport(notes);
       zip.file('index.md', indexContent);
-
       const blob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -227,39 +214,20 @@ export class ImportExportService {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
-      return {
-        success: true,
-        message: `Exported ${notes.length} note(s) as Markdown ZIP`,
-        fileName: link.download,
-      };
+      return { success: true, message: `Exported ${notes.length} note(s) as Markdown ZIP`, fileName: link.download };
     } catch (error) {
-      console.error('[ImportExportService] Error exporting as Markdown:', error);
-      return {
-        success: false,
-        message: 'Failed to export as Markdown',
-      };
+      console.error(error);
+      return { success: false, message: 'Failed to export as Markdown' };
     }
   }
 
-  /**
-   * Exports notes as a presentation-focused PDF
-   * @param notes - Array of notes to export
-   * @returns ExportResult
-   */
   static exportAsPDF(notes: Note[]): ExportResult {
     try {
       PDFUtil.generatePDF(notes);
-      return {
-        success: true,
-        message: `Exported ${notes.length} note(s) as PDF`,
-      };
+      return { success: true, message: `Exported ${notes.length} note(s) as PDF` };
     } catch (error) {
-      console.error('[ImportExportService] Error exporting as PDF:', error);
-      return {
-        success: false,
-        message: 'Failed to export as PDF',
-      };
+      console.error(error);
+      return { success: false, message: 'Failed to export as PDF' };
     }
   }
 
@@ -519,7 +487,45 @@ export class ImportExportService {
           tags: parsed.tags,
         };
         validatedNotes.push(note);
+      } else if (file.name.endsWith('.zip') || file.type.includes('zip')) {
+        const zip = new JSZip();
+        const loadedZip = await zip.loadAsync(file);
+        for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
+          if (!zipEntry.dir && filename.endsWith('.md')) {
+            if (filename === 'index.md') {
+              const content = await zipEntry.async('text');
+              if (content.startsWith('# Notes Export')) continue;
+            }
+            const text = await zipEntry.async('text');
+            const parsed = MarkdownUtil.parseSingleNote(text);
+            const note: Note = {
+              id: uuidv4(),
+              title: parsed.title || filename.replace('.md', ''),
+              content: parsed.content || '',
+              status: parsed.status || 'todo',
+              priority: parsed.priority || 'medium',
+              isPinned: false,
+              createdAt: parsed.createdAt || new Date(),
+              tags: parsed.tags,
+            };
+            validatedNotes.push(note);
+          }
+        }
+      } else {
+        return {
+          success: false,
+          message: 'Invalid file type. Please select a .md or .zip file.',
+        };
       }
+
+      if (validatedNotes.length === 0) {
+        return {
+          success: false,
+          message: 'No valid notes found in the imported file.',
+          errors,
+        };
+      }
+
       return { success: true, message: `Successfully imported ${validatedNotes.length} note(s)`, notes: validatedNotes };
     } catch (error) {
       console.error('[ImportExportService] Error importing from Markdown:', error);
