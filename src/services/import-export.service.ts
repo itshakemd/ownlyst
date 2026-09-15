@@ -14,6 +14,7 @@ import type {
 import { EMOTE_AVATARS } from '../constants/emotes';
 import JSZip from 'jszip';
 import { MarkdownUtil } from '../utils/markdown-export.util';
+import { PDFUtil } from '../utils/pdf-export.util';
 
 // Formats: JSON, CSV, MD, PDF
 interface ExportResult {
@@ -237,6 +238,27 @@ export class ImportExportService {
       return {
         success: false,
         message: 'Failed to export as Markdown',
+      };
+    }
+  }
+
+  /**
+   * Exports notes as a presentation-focused PDF
+   * @param notes - Array of notes to export
+   * @returns ExportResult
+   */
+  static exportAsPDF(notes: Note[]): ExportResult {
+    try {
+      PDFUtil.generatePDF(notes);
+      return {
+        success: true,
+        message: `Exported ${notes.length} note(s) as PDF`,
+      };
+    } catch (error) {
+      console.error('[ImportExportService] Error exporting as PDF:', error);
+      return {
+        success: false,
+        message: 'Failed to export as PDF',
       };
     }
   }
