@@ -12,6 +12,8 @@ import type {
   UserProfileExport,
 } from '../models/user-preferences.model';
 import { EMOTE_AVATARS } from '../constants/emotes';
+import JSZip from 'jszip';
+import { MarkdownUtil } from '../utils/markdown-export.util';
 
 // Formats: JSON, CSV, MD, PDF
 interface ExportResult {
@@ -173,6 +175,68 @@ export class ImportExportService {
       return {
         success: false,
         message: 'Failed to export backup as CSV',
+      };
+    }
+  }
+
+  static async exportAsMarkdown(notes: Note[]): Promise<ExportResult> {
+    try {
+      if (notes.length === 1) {
+        // Single note export: just download a .md file
+        const note = notes[0];
+        const mdContent = MarkdownUtil.generateSingleNote(note);
+        const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        const safeTitle = note.title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        link.download = `${safeTitle}.md`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        return {
+          success: true,
+          message: `Exported ${note.title} as Markdown`,
+          fileName: link.download,
+        };
+      }
+
+      // Bulk export: generate a ZIP file containing individual .md files and an index
+      const zip = new JSZip();
+      
+      // Generate individual note files
+      notes.forEach((note) => {
+        const mdContent = MarkdownUtil.generateSingleNote(note);
+        const safeTitle = note.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || note.id;
+        zip.file(`notes/${safeTitle}.md`, mdContent);
+      });
+      
+      // Generate bulk index
+      const indexContent = MarkdownUtil.generateBulkExport(notes);
+      zip.file('index.md', indexContent);
+
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ownlyst-markdown-export-${this.getTimestamp()}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      return {
+        success: true,
+        message: `Exported ${notes.length} note(s) as Markdown ZIP`,
+        fileName: link.download,
+      };
+    } catch (error) {
+      console.error('[ImportExportService] Error exporting as Markdown:', error);
+      return {
+        success: false,
+        message: 'Failed to export as Markdown',
       };
     }
   }
