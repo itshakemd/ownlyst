@@ -46,13 +46,11 @@ export default function ImportExport({
     showToast(result.message, result.success ? 'success' : 'error');
     setIsOpen(false);
   };
-
   const handleExportPDF = () => {
     const result = ImportExportService.exportAsPDF(notes);
     showToast(result.message, result.success ? 'success' : 'error');
     setIsOpen(false);
   };
-
   const handleExportCSV = () => {
     const result = ImportExportService.exportAsCSV(notes, userPreferences);
     showToast(result.message, result.success ? 'success' : 'error');
@@ -61,7 +59,7 @@ export default function ImportExport({
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>,
-    format: 'json' | 'csv'
+    format: 'json' | 'csv' | 'md'
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -71,7 +69,9 @@ export default function ImportExport({
       const result =
         format === 'json'
           ? await ImportExportService.importFromJSON(file)
-          : await ImportExportService.importFromCSV(file);
+          : format === 'csv'
+          ? await ImportExportService.importFromCSV(file)
+          : await ImportExportService.importFromMarkdown(file);
 
       if (result.success && result.notes) {
         onImportNotes(result.notes);
@@ -200,6 +200,21 @@ export default function ImportExport({
                       type='file'
                       accept='.csv'
                       onChange={(e) => handleFileSelect(e, 'csv')}
+                      disabled={isImporting}
+                      className='hidden'
+                    />
+                  </label>
+                  <label className='block cursor-pointer'>
+                    <motion.div
+                      whileHover={{ backgroundColor: 'rgba(0,0,0,0.05)' }}
+                      className='w-full text-left px-3 py-2 rounded-md text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors'>
+                      <Upload size={16} />
+                      <span>{isImporting ? 'Importing...' : 'Markdown/ZIP'}</span>
+                    </motion.div>
+                    <input
+                      type='file'
+                      accept='.md,.zip'
+                      onChange={(e) => handleFileSelect(e, 'md')}
                       disabled={isImporting}
                       className='hidden'
                     />
